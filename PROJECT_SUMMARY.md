@@ -3,9 +3,9 @@
 ## Overview
 A complete Cinema 4D-style particle visualization system with music synchronization, built for VSCode development using Three.js and Web Audio API.
 
-## ✨ Key Features Implemented
+##Key Features Implemented
 
-### 🎨 Visual Features
+### Visual Features
 - **Custom GLB Model Import** with automatic centering and scaling
 - **Dual Color Modes:**
   - Custom gradient colors with live color pickers
@@ -15,27 +15,27 @@ A complete Cinema 4D-style particle visualization system with music synchronizat
   - Additive blending (glowing, Cinema 4D-style effects)
 - **Real-time particle distribution** around imported models
 
-### 🎵 Audio Features
+###Audio Features
 - **Web Audio API integration** for real-time frequency analysis
 - **FFT-based audio analysis** (256 frequency bins)
 - **Music synchronization** with adjustable reactivity (0-3x)
 - **Frequency-mapped color pulsing** - different particles react to different frequencies
 - **Smooth color attenuation** with adjustable decay speed (0.8-0.99)
 
-### ⚙️ Interactive Controls
+### Interactive Controls
 - **Particle count:** 1,000 - 50,000 particles
 - **Particle size:** 0.01 - 0.1 units
 - **Music reactivity:** 0-3x multiplier
 - **Attenuation speed:** Controls color fade-back rate
 - **Real-time updates:** All changes apply instantly
 
-### 📊 Performance
+### Performance
 - **FPS counter** and performance monitoring
 - **Efficient buffer management** with Three.js
 - **Optimized rendering** with size attenuation and depth sorting
 - **Particle recycling** to prevent memory leaks
 
-## 🏗️ Architecture
+## Architecture
 
 ### File Structure
 ```
@@ -74,7 +74,7 @@ c4d-music-particles/
 - Calculates bass, mid, and treble frequencies
 - Handles audio playback and controls
 
-## 🎯 How It Works
+## How It Works
 
 ### Particle Creation
 1. Generates Float32 arrays for positions, colors, sizes, and velocities
@@ -102,7 +102,7 @@ c4d-music-particles/
 4. Randomly assigns model colors to particles
 5. Falls back to white if no colors found
 
-## 🚀 Usage Instructions
+## Usage Instructions
 
 ### Setup (3 steps)
 ```bash
@@ -123,7 +123,7 @@ npm run dev
 - **Performance mode:** 5,000 particles, Normal blend
 - **Quality mode:** 20,000+ particles, Additive blend
 
-## 🎨 Color Modes Explained
+## Color Modes Explained
 
 ### Custom Gradient Mode
 - Define start and end colors with color pickers
@@ -151,7 +151,7 @@ npm run dev
 - Classic Cinema 4D look
 - Works best with darker backgrounds
 
-## 📝 Technical Specifications
+## Technical Specifications
 
 - **3D Engine:** Three.js r160
 - **Build Tool:** Vite 5.0
@@ -160,7 +160,7 @@ npm run dev
 - **File Formats:** GLB/GLTF models, all audio formats
 - **Browser Support:** Modern browsers with WebGL 2.0
 
-## 🔧 VSCode Integration
+## VSCode Integration
 
 Included workspace file (`.code-workspace`) with:
 - Auto-formatting on save
@@ -196,7 +196,7 @@ The code demonstrates:
 - Beat detection and reactive animations
 - Multi-model support with particle sharing
 
-## 📦 Dependencies
+## Dependencies
 
 ```json
 {
@@ -207,7 +207,7 @@ The code demonstrates:
 
 All other functionality uses native Web APIs!
 
-## 🎉 Ready to Use
+##Ready to Use
 
 The project is complete and ready to run. Just:
 1. Open in VSCode
@@ -215,4 +215,4 @@ The project is complete and ready to run. Just:
 3. Run `npm run dev`
 4. Start creating!
 
-Enjoy building amazing audio visualizations! 🎨🎵✨
+Enjoy building amazing audio visualizations!
