@@ -137,7 +137,7 @@ npm run dev
 - Randomly distributes model colors to particles
 - Preserves model's color palette in particle system
 
-## 🎭 Blend Modes Explained
+## Blend Modes Explained
 
 ### Normal Blending
 - Standard alpha blending
@@ -168,14 +168,14 @@ Included workspace file (`.code-workspace`) with:
 - Optimized search/exclude patterns
 - JavaScript/TypeScript IntelliSense
 
-## 📚 Documentation Included
+## Documentation Included
 
 1. **README.md** - Comprehensive guide with all features
 2. **QUICKSTART.md** - Get running in 3 steps
 3. **Inline comments** - Code is well-documented
 4. **VSCode workspace** - Preconfigured settings
 
-## 🎓 Learning Resources
+## Learning Resources
 
 The code demonstrates:
 - Three.js particle systems
@@ -185,7 +185,7 @@ The code demonstrates:
 - File upload handling in web apps
 - Vite development workflow
 
-## 🔮 Future Enhancement Ideas
+## Future Enhancement Ideas
 
 - Export video/GIF of visualizations
 - Preset system for saving configurations
