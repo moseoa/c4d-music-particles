@@ -18,21 +18,21 @@ class App {
     this.particleSystem = null;
     this.audioAnalyzer = null;
     this.model = null;
+    this.mouse = new THREE.Vector2(999, 999); // Start off-screen
 
     this.settings = {
       colorMode: "gradient",
       colorStart: "#ff0080",
       colorEnd: "#00d4ff",
       blendMode: "additive",
-      particleCount: 15000,
-      particleSize: 0.03,
-      reactivity: 1.0,
-      attenuation: 0.95,
-      morphSpeed: 0.02,
-      turbulence: 0.5,
-      bloomIntensity: 0.15,
-      bloomThreshold: 0.4,
-      bloomRadius: 0.6,
+      particleCount: 100000,
+      particleSize: 0.05,
+      reactivity: 0.8,
+      morphSpeed: 0.015,
+      turbulence: 0.1,
+      bloomIntensity: 1.2,
+      bloomThreshold: 0.05,
+      bloomRadius: 0.8,
     };
 
     this.stats = {
@@ -70,7 +70,7 @@ class App {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.9;
+    this.renderer.toneMappingExposure = 1.0;
     document
       .getElementById("canvas-container")
       .appendChild(this.renderer.domElement);
@@ -106,11 +106,20 @@ class App {
     this.scene.add(pointLight);
 
     // ---- Systems ----
-    this.particleSystem = new ParticleSystem(this.scene, this.settings);
+    console.log("Initializing ParticleSystem...");
+    this.particleSystem = new ParticleSystem(this.scene, this.camera);
+    console.log("ParticleSystem initialized");
     this.audioAnalyzer = new AudioAnalyzer();
 
     // ---- Resize ----
     window.addEventListener("resize", () => this.onWindowResize());
+
+    // ---- Mouse Interaction ----
+    window.addEventListener("mousemove", (e) => {
+      // Normalize mouse to -1..1
+      this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    });
   }
 
   setupEventListeners() {
@@ -363,66 +372,76 @@ class App {
   /* ------------------------------------------------------------------ */
 
   animate() {
-    requestAnimationFrame(() => this.animate());
+    // console.log("Animate loop");
+    requestAnimationFrame(this.animate.bind(this));
 
-    // ---- Audio analysis ----
-    this.audioAnalyzer.update();
+    try {
+      const time = performance.now();
+      this.audioAnalyzer.update();
 
-    let audioLevel = 0;
-    let frequencyData = null;
+      let audioLevel = 0;
+      let frequencyData = null;
 
-    if (this.audioAnalyzer.isPlaying) {
-      audioLevel = this.audioAnalyzer.getAverageFrequency();
-      frequencyData = this.audioAnalyzer.getFrequencyData();
+      if (this.audioAnalyzer.isPlaying) {
+        audioLevel = this.audioAnalyzer.getAverageFrequency();
+        frequencyData = this.audioAnalyzer.getFrequencyData();
 
-      // Update stat displays
-      const setBar = (id, value) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = Math.round(value * 100) + "%";
-      };
-      setBar("bass-level", this.audioAnalyzer.bass);
-      setBar("mid-level", this.audioAnalyzer.mid);
-      setBar("treble-level", this.audioAnalyzer.treble);
+        // Update stat displays
+        const setBar = (id, value) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = Math.round(value * 100) + "%";
+        };
+        setBar("bass-level", this.audioAnalyzer.bass);
+        setBar("mid-level", this.audioAnalyzer.mid);
+        setBar("treble-level", this.audioAnalyzer.treble);
 
-      const audioEl = document.getElementById("audio-level");
-      if (audioEl) audioEl.textContent = Math.round(audioLevel);
+        const audioEl = document.getElementById("audio-level");
+        if (audioEl) audioEl.textContent = Math.round(audioLevel);
 
-      // Beat indicator
-      const beatEl = document.getElementById("beat-indicator");
-      if (beatEl) {
-        beatEl.style.opacity = this.audioAnalyzer.isBeat ? "1" : "0.15";
+        // Beat indicator
+        const beatEl = document.getElementById("beat-indicator");
+        if (beatEl) {
+          beatEl.style.opacity = this.audioAnalyzer.isBeat ? "1" : "0.15";
+        }
       }
+
+      // ---- Update particles ----
+      this.particleSystem.update({
+        audioLevel,
+        frequencyData,
+        bass: this.audioAnalyzer.bass,
+        mid: this.audioAnalyzer.mid,
+        treble: this.audioAnalyzer.treble,
+        isBeat: this.audioAnalyzer.isBeat,
+        reactivity: this.settings.reactivity,
+        attenuation: this.settings.attenuation,
+        turbulence: this.settings.turbulence,
+        bloomIntensity: this.settings.bloomIntensity,
+      });
+
+      // ---- Morph state display ----
+      const morphEl = document.getElementById("morph-state");
+      if (morphEl) {
+        const state = this.particleSystem.getMorphState();
+        morphEl.textContent = state > 0.5 ? "Formed" : "Scattered";
+      }
+
+      // ---- Controls ----
+      this.controls.update();
+
+      // ---- Update Mouse Force ----
+      if (this.particleSystem.setMouse) {
+        this.particleSystem.setMouse(this.mouse.x, this.mouse.y);
+      }
+
+      // ---- Render with post-processing ----
+      this.composer.render();
+
+      // ---- Stats ----
+      this.updateStats();
+    } catch (e) {
+      console.error("Animate Error:", e);
     }
-
-    // ---- Update particles ----
-    this.particleSystem.update({
-      audioLevel,
-      frequencyData,
-      bass: this.audioAnalyzer.bass,
-      mid: this.audioAnalyzer.mid,
-      treble: this.audioAnalyzer.treble,
-      isBeat: this.audioAnalyzer.isBeat,
-      reactivity: this.settings.reactivity,
-      attenuation: this.settings.attenuation,
-      turbulence: this.settings.turbulence,
-      bloomIntensity: this.settings.bloomIntensity,
-    });
-
-    // ---- Morph state display ----
-    const morphEl = document.getElementById("morph-state");
-    if (morphEl) {
-      const state = this.particleSystem.getMorphState();
-      morphEl.textContent = state > 0.5 ? "Formed" : "Scattered";
-    }
-
-    // ---- Controls ----
-    this.controls.update();
-
-    // ---- Render with post-processing ----
-    this.composer.render();
-
-    // ---- Stats ----
-    this.updateStats();
   }
 }
 

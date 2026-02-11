@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orchid Particle System - Gesture Controlled</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #050508;
+        color: #fff;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+      }
+      #canvas-container {
+        width: 100vw;
+        height: 100vh;
+      }
+      #ui {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 10;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 15px;
+        border-radius: 10px;
+        backdrop-filter: blur(5px);
+        pointer-events: none;
+      }
+      h1 {
+        margin: 0 0 10px 0;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      p {
+        margin: 5px 0;
+        font-size: 14px;
+        opacity: 0.8;
+      }
+      .gesture-status {
+        font-weight: bold;
+        color: #00d4ff;
+      }
+      video {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 200px;
+        border-radius: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        transform: scaleX(-1);
+        z-index: 5;
+      }
+      #loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #050508;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 100;
+        transition: opacity 0.5s;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading-overlay">Loading Orchid Model & Hand Tracking...</div>
+    <div id="ui">
+      <h1>Orchid Particle System</h1>
+      <p>
+        Gesture:
+        <span id="gesture-label" class="gesture-status">Detecting...</span>
+      </p>
+      <p>
+        Hand: <span id="hand-presence" class="gesture-status">Not Found</span>
+      </p>
+      <p>Usage: ✊ Fist to Converge | 🖐️ Palm to Diffuse</p>
+    </div>
+
+    <video id="webcam" autoplay playsinline></video>
+    <div id="canvas-container"></div>
+
+    <!-- Scripts -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/examples/jsm/loaders/GLTFLoader": "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js",
+          "three/examples/jsm/controls/OrbitControls": "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js"
+        }
+      }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+      import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+
+      // --- Configuration ---
+      const PARTICLE_COUNT = 100000;
+      const PARTICLE_SIZE = 0.04;
+      const LILY_MODEL_URL = "GLB models/orchid_flower.glb";
+
+      // --- State ---
+      let scene, camera, renderer, controls, particleSystem;
+      let progress = 0; // 0 = converged, 1 = diffused
+      let targetProgress = 0;
+      let handVisible = false;
+
+      // --- Hand Tracking Setup ---
+      const videoElement = document.getElementById("webcam");
+      const gestureLabel = document.getElementById("gesture-label");
+      const presenceLabel = document.getElementById("hand-presence");
+
+      const hands = new Hands({
+        locateFile: (file) =>
+          `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+      });
+
+      hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+
+      hands.onResults(onHandResults);
+
+      const cameraFeed = new Camera(videoElement, {
+        onFrame: async () => {
+          await hands.send({ image: videoElement });
+        },
+        width: 640,
+        height: 480,
+      });
+      cameraFeed.start();
+
+      function onHandResults(results) {
+        if (
+          results.multiHandLandmarks &&
+          results.multiHandLandmarks.length > 0
+        ) {
+          handVisible = true;
+          presenceLabel.textContent = "Found";
+
+          const landmarks = results.multiHandLandmarks[0];
+
+          // Detection logic: Fist vs Palm
+          // Check distance between finger tips and palm base
+          const wrist = landmarks[0];
+          const thumbTip = landmarks[4];
+          const indexTip = landmarks[8];
+          const middleTip = landmarks[12];
+          const ringTip = landmarks[16];
+          const pinkyTip = landmarks[20];
+
+          const getDist = (a, b) =>
+            Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+
+          // Average distance from tips to wrist
+          const avgDist =
+            (getDist(indexTip, wrist) +
+              getDist(middleTip, wrist) +
+              getDist(ringTip, wrist) +
+              getDist(pinkyTip, wrist)) /
+            4;
+
+          // Threshold for fist vs palm (normalized coordinates)
+          if (avgDist < 0.25) {
+            targetProgress = 0; // Fist -> Converge
+            gestureLabel.textContent = "Fist (Converging)";
+          } else {
+            targetProgress = 1; // Palm -> Diffuse
+            gestureLabel.textContent = "Palm (Diffusing)";
+          }
+        } else {
+          handVisible = false;
+          presenceLabel.textContent = "Not Found";
+          gestureLabel.textContent = "Reseting...";
+          targetProgress = 0; // Default to converged if no hand
+        }
+      }
+
+      // --- Three.js Implementation ---
+      init();
+
+      function init() {
+        // Scene
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050508);
+
+        // Camera
+        camera = new THREE.PerspectiveCamera(
+          60,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          1000,
+        );
+        camera.position.set(0, 5, 10);
+
+        // Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document
+          .getElementById("canvas-container")
+          .appendChild(renderer.domElement);
+
+        // Controls
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // Load Model and Create Particles
+        const loader = new GLTFLoader();
+        loader.load(
+          LILY_MODEL_URL,
+          (gltf) => {
+            createParticles(gltf.scene);
+            document.getElementById("loading-overlay").style.opacity = "0";
+            setTimeout(
+              () =>
+                (document.getElementById("loading-overlay").style.display =
+                  "none"),
+              500,
+            );
+          },
+          undefined,
+          (error) => {
+            console.error("Error loading model:", error);
+            document.getElementById("loading-overlay").textContent =
+              "Error: orchid_flower.glb not found. Please ensure it is in 'GLB models/'.";
+          },
+        );
+
+        window.addEventListener("resize", onResize);
+        animate();
+      }
+
+      function createParticles(model) {
+        const vertices = [];
+        model.traverse((child) => {
+          if (child.isMesh) {
+            const posAttr = child.geometry.attributes.position;
+            const worldMatrix = child.matrixWorld;
+            for (let i = 0; i < posAttr.count; i++) {
+              const v = new THREE.Vector3();
+              v.fromBufferAttribute(posAttr, i);
+              v.applyMatrix4(worldMatrix);
+              vertices.push(v);
+            }
+          }
+        });
+
+        const count = PARTICLE_COUNT;
+        const positions = new Float32Array(count * 3);
+        const targets = new Float32Array(count * 3);
+        const offsets = new Float32Array(count * 3);
+        const randomData = new Float32Array(count);
+
+        for (let i = 0; i < count; i++) {
+          const i3 = i * 3;
+          const v =
+            vertices[Math.floor(Math.random() * vertices.length)] ||
+            new THREE.Vector3();
+
+          // Base position on model
+          positions[i3] = v.x;
+          positions[i3 + 1] = v.y;
+          positions[i3 + 2] = v.z;
+
+          // Diffusion target (random far away)
+          targets[i3] = (Math.random() - 0.5) * 50;
+          targets[i3 + 1] = (Math.random() - 0.5) * 50;
+          targets[i3 + 2] = (Math.random() - 0.5) * 50;
+
+          // Micro-jitter offset direction
+          offsets[i3] = (Math.random() - 0.5) * 0.2;
+          offsets[i3 + 1] = (Math.random() - 0.5) * 0.2;
+          offsets[i3 + 2] = (Math.random() - 0.5) * 0.2;
+
+          randomData[i] = Math.random();
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute(
+          "position",
+          new THREE.BufferAttribute(positions, 3),
+        );
+        geometry.setAttribute("aTarget", new THREE.BufferAttribute(targets, 3));
+        geometry.setAttribute("aOffset", new THREE.BufferAttribute(offsets, 3));
+        geometry.setAttribute(
+          "aRandom",
+          new THREE.BufferAttribute(randomData, 1),
+        );
+
+        const vertexShader = `
+                uniform float uTime;
+                uniform float uProgress;
+                attribute vec3 aTarget;
+                attribute vec3 aOffset;
+                attribute float aRandom;
+                varying float vAlpha;
+                varying float vHeight;
+
+                void main() {
+                    vHeight = position.y; // Pass Y for coloring
+                    
+                    // Floating jitter logic
+                    float jitter = sin(uTime * 2.0 + aRandom * 10.0) * 0.05;
+                    vec3 bloomPos = position + aOffset * jitter;
+                    
+                    // Dissipate/Aggregate lerp
+                    vec3 finalPos = mix(bloomPos, aTarget, uProgress);
+                    
+                    vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
+                    
+                    // Point size with perspective
+                    gl_PointSize = (1.0 - uProgress * 0.5) * 6.0 * (10.0 / -mvPosition.z);
+                    
+                    // Fade alpha as we dissipate
+                    vAlpha = 1.0 - uProgress * 0.8;
+                    
+                    gl_Position = projectionMatrix * mvPosition;
+                }
+            `;
+
+        const fragmentShader = `
+                varying float vAlpha;
+                varying float vHeight;
+                void main() {
+                    // Soft glowing dot
+                    vec2 cxy = 2.0 * gl_PointCoord - 1.0;
+                    float r = dot(cxy, cxy);
+                    if (r > 1.0) discard;
+                    
+                    float strength = pow(1.0 - r, 3.0);
+                    
+                    // Orchid Color Mapping (Hardcoded height range estimate for this model 0..5 approx)
+                    // Bottom (Stem) = Gold, Top (Petals) = Pink/Purple
+                    float h = clamp((vHeight + 1.0) / 6.0, 0.0, 1.0);
+                    vec3 color;
+                    if (h > 0.6) {
+                        color = mix(vec3(0.5, 0.1, 0.5), vec3(1.0, 0.2, 0.8), h); // Pink/Purple
+                    } else if (h > 0.3) {
+                        color = mix(vec3(1.0, 0.8, 0.0), vec3(0.5, 0.1, 0.5), (h-0.3)*3.3); // Gold to Purple
+                    } else {
+                        color = vec3(1.0, 0.8, 0.0); // Gold Stem
+                    }
+
+                    gl_FragColor = vec4(color, strength * vAlpha);
+                }
+            `;
+
+        const material = new THREE.ShaderMaterial({
+          vertexShader,
+          fragmentShader,
+          uniforms: {
+            uTime: { value: 0 },
+            uProgress: { value: 0 },
+          },
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+
+        particleSystem = new THREE.Points(geometry, material);
+        scene.add(particleSystem);
+      }
+
+      function onResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const time = performance.now() * 0.001;
+
+        if (particleSystem) {
+          // Smooth transition for progress
+          progress = THREE.MathUtils.lerp(progress, targetProgress, 0.05);
+
+          particleSystem.material.uniforms.uTime.value = time;
+          particleSystem.material.uniforms.uProgress.value = progress;
+
+          // Slow rotation
+          particleSystem.rotation.y += 0.002;
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+    </script>
+  </body>
+</html>

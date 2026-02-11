@@ -166,30 +166,32 @@
       /* ---- Range sliders ---- */
       input[type="range"] {
         -webkit-appearance: none;
+        appearance: none;
         width: 100%;
-        height: 4px;
-        background: rgba(255, 255, 255, 0.08);
-        border-radius: 2px;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 1px;
         outline: none;
         cursor: pointer;
       }
       input[type="range"]::-webkit-slider-thumb {
         -webkit-appearance: none;
-        width: 14px;
-        height: 14px;
+        width: 12px;
+        height: 12px;
         background: #a78bfa;
         border-radius: 50%;
         cursor: pointer;
-        box-shadow: 0 0 8px rgba(167, 139, 250, 0.5);
+        box-shadow: 0 0 6px rgba(167, 139, 250, 0.4);
         transition: box-shadow 0.2s;
       }
       input[type="range"]::-webkit-slider-thumb:hover {
-        box-shadow: 0 0 14px rgba(167, 139, 250, 0.8);
+        box-shadow: 0 0 10px rgba(167, 139, 250, 0.6);
       }
 
       /* ---- Color pickers ---- */
       input[type="color"] {
         -webkit-appearance: none;
+        appearance: none;
         width: 100%;
         height: 32px;
         border: 1px solid rgba(255, 255, 255, 0.08);
@@ -417,33 +419,33 @@
 
       <div class="control-group">
         <label
-          >Count <span class="val" id="particle-count-val">15000</span></label
+          >Count <span class="val" id="particle-count-val">100000</span></label
         >
         <input
           type="range"
           id="particle-count"
-          min="1000"
-          max="50000"
-          step="1000"
-          value="15000"
+          min="5000"
+          max="200000"
+          step="5000"
+          value="100000"
         />
       </div>
 
       <div class="control-group">
-        <label>Size <span class="val" id="particle-size-val">0.03</span></label>
+        <label>Size <span class="val" id="particle-size-val">0.05</span></label>
         <input
           type="range"
           id="particle-size"
-          min="0.01"
-          max="0.10"
+          min="0.005"
+          max="0.20"
           step="0.005"
-          value="0.03"
+          value="0.05"
         />
       </div>
 
       <div class="control-group">
         <label
-          >Turbulence <span class="val" id="turbulence-val">0.50</span></label
+          >Turbulence <span class="val" id="turbulence-val">0.10</span></label
         >
         <input
           type="range"
@@ -451,7 +453,7 @@
           min="0"
           max="2"
           step="0.05"
-          value="0.50"
+          value="0.10"
         />
       </div>
 
@@ -525,15 +527,15 @@
       <div class="control-group">
         <label
           >Bloom Intensity
-          <span class="val" id="bloom-intensity-val">0.35</span></label
+          <span class="val" id="bloom-intensity-val">1.2</span></label
         >
         <input
           type="range"
           id="bloom-intensity"
           min="0"
           max="3"
-          step="0.1"
-          value="0.35"
+          step="0.05"
+          value="1.2"
         />
       </div>
     </div>
