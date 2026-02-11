@@ -1,21 +1,21 @@
 # C4D Music Particle System
 
-A Cinema 4D-style particle system with music synchronization built with Three.js and Web Audio API. Import custom GLB models and audio files to create stunning audio-reactive visualizations.
+A Cinema 4D-style particle system with music synchronization built with Three.js and Web Audio API. Import custom GLB models and audio files. 
 
 ## Features
 
-- 🎨 **Custom GLB Model Import** - Load your own 3D models
-- 🎵 **Music Synchronization** - Real-time audio analysis and particle reactivity
-- 🌈 **Flexible Color Modes**
+- **Custom GLB Model Import** - Load your own 3D models
+- **Music Synchronization** - Real-time audio analysis and particle reactivity
+- **Flexible Color Modes**
   - Custom gradient colors
   - Inherit model's material colors
-- 🎭 **Blend Modes** - Normal and Additive blending
-- ⚡ **Real-time Controls**
+- **Blend Modes** - Normal and Additive blending
+- **Real-time Controls**
   - Particle count (1,000 - 50,000)
   - Particle size
   - Music reactivity
   - Color attenuation speed
-- 📊 **Performance Monitoring** - FPS counter and stats display
+- **Performance Monitoring** - FPS counter and stats display
 
 ## Installation
 
