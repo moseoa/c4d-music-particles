@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C4D Music Particles</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+            max-width: 350px;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+
+        input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #00d4ff;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+        }
+
+        input[type="file"]::file-selector-button {
+            background: #00d4ff;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            color: #000;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #00d4ff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        input[type="color"] {
+            width: 100%;
+            height: 40px;
+            border: 1px solid #00d4ff;
+            border-radius: 5px;
+            cursor: pointer;
+            background: transparent;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #00d4ff;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+        }
+
+        select option {
+            background: #1a1a1a;
+            color: white;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #00d4ff;
+            border: none;
+            border-radius: 5px;
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #00a8cc;
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .value-display {
+            display: inline-block;
+            float: right;
+            color: #00d4ff;
+        }
+
+        #stats {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            font-size: 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        .stat-row {
+            margin: 5px 0;
+        }
+
+        .stat-label {
+            color: #00d4ff;
+            display: inline-block;
+            width: 100px;
+        }
+
+        h2 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .divider {
+            height: 1px;
+            background: rgba(0, 212, 255, 0.3);
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div id="controls">
+        <h2>🎨 C4D Particle System</h2>
+        
+        <div class="control-group">
+            <label>Import GLB Model</label>
+            <input type="file" id="model-upload" accept=".glb,.gltf">
+        </div>
+
+        <div class="control-group">
+            <label>Import Audio</label>
+            <input type="file" id="audio-upload" accept="audio/*">
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="control-group">
+            <label>Color Mode</label>
+            <select id="color-mode">
+                <option value="gradient">Custom Gradient</option>
+                <option value="model">Model Color</option>
+            </select>
+        </div>
+
+        <div class="control-group" id="gradient-colors">
+            <label>Gradient Start</label>
+            <input type="color" id="color-start" value="#ff0080">
+            <label style="margin-top: 10px;">Gradient End</label>
+            <input type="color" id="color-end" value="#00d4ff">
+        </div>
+
+        <div class="control-group">
+            <label>Blend Mode</label>
+            <select id="blend-mode">
+                <option value="normal">Normal</option>
+                <option value="additive">Additive</option>
+            </select>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="control-group">
+            <label>Particle Count <span class="value-display" id="particle-count-val">10000</span></label>
+            <input type="range" id="particle-count" min="1000" max="50000" step="1000" value="10000">
+        </div>
+
+        <div class="control-group">
+            <label>Particle Size <span class="value-display" id="particle-size-val">0.02</span></label>
+            <input type="range" id="particle-size" min="0.01" max="0.1" step="0.01" value="0.02">
+        </div>
+
+        <div class="control-group">
+            <label>Music Reactivity <span class="value-display" id="reactivity-val">1.0</span></label>
+            <input type="range" id="reactivity" min="0" max="3" step="0.1" value="1.0">
+        </div>
+
+        <div class="control-group">
+            <label>Attenuation Speed <span class="value-display" id="attenuation-val">0.95</span></label>
+            <input type="range" id="attenuation" min="0.8" max="0.99" step="0.01" value="0.95">
+        </div>
+
+        <button id="play-pause" disabled>Play Audio</button>
+    </div>
+
+    <div id="stats">
+        <div class="stat-row"><span class="stat-label">FPS:</span><span id="fps">0</span></div>
+        <div class="stat-row"><span class="stat-label">Particles:</span><span id="particle-total">0</span></div>
+        <div class="stat-row"><span class="stat-label">Audio Level:</span><span id="audio-level">0</span></div>
+        <div class="stat-row"><span class="stat-label">Model:</span><span id="model-name">None</span></div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
