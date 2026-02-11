@@ -2,6 +2,8 @@
 
 A Cinema 4D-style particle system with music synchronization built with Three.js and Web Audio API. Import custom GLB models and audio files. 
 
+https://github.com/user-attachments/assets/c18241f1-9731-4c09-b119-56800872382d
+
 ## Features
 
 - **Custom GLB Model Import** - Load your own 3D models
