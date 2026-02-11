@@ -111,6 +111,10 @@ class App {
     console.log("ParticleSystem initialized");
     this.audioAnalyzer = new AudioAnalyzer();
 
+    // ---- Default Model Load ----
+    // FIX: Use standard folder name
+    this.loadModel("models/orchid_flower.glb");
+
     // ---- Resize ----
     window.addEventListener("resize", () => this.onWindowResize());
 
@@ -130,6 +134,8 @@ class App {
     document.getElementById("audio-upload").addEventListener("change", (e) => {
       this.loadAudio(e.target.files[0]);
     });
+
+    // ... (rest of event listeners unchanged)
 
     // ---- Color mode ----
     document.getElementById("color-mode").addEventListener("change", (e) => {
@@ -262,11 +268,22 @@ class App {
   /*  Model & Audio loading                                              */
   /* ------------------------------------------------------------------ */
 
-  async loadModel(file) {
-    if (!file) return;
+  async loadModel(source) {
+    if (!source) return;
 
     const loader = new GLTFLoader();
-    const url = URL.createObjectURL(file);
+    let url;
+    let isFile = false;
+
+    if (source instanceof File) {
+      url = URL.createObjectURL(source);
+      isFile = true;
+    } else {
+      // Assume string URL
+      url = source;
+    }
+
+    console.log("Loading model from:", url);
 
     try {
       const gltf = await new Promise((resolve, reject) => {
@@ -302,14 +319,20 @@ class App {
       this.particleSystem.setModel(this.model, this.settings);
 
       // Update UI
-      document.getElementById("model-name").textContent = file.name;
-      document.getElementById("morph-toggle").disabled = false;
+      const name = isFile ? source.name : source.split("/").pop();
+      const modelNameEl = document.getElementById("model-name");
+      if (modelNameEl) modelNameEl.textContent = name;
 
-      URL.revokeObjectURL(url);
+      const morphToggle = document.getElementById("morph-toggle");
+      if (morphToggle) morphToggle.disabled = false;
+
+      if (isFile) URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error loading model:", error);
-      alert("Error loading model. Please ensure it's a valid GLB/GLTF file.");
-      URL.revokeObjectURL(url);
+      // Only alert if it was a user user action, or maybe just log for default
+      if (isFile)
+        alert("Error loading model. Please ensure it's a valid GLB/GLTF file.");
+      if (isFile) URL.revokeObjectURL(url);
     }
   }
 

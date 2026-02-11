@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Orchid Particle System - Gesture Controlled</title>
+    <title>Orchid Particle System - Standalone Demo</title>
     <style>
       body {
         margin: 0;
@@ -26,13 +26,15 @@
         background: rgba(0, 0, 0, 0.5);
         padding: 15px;
         border-radius: 10px;
-        backdrop-filter: blur(5px);
+        backdrop-filter: blur(8px);
         pointer-events: none;
+        border: 1px solid rgba(255, 255, 255, 0.1);
       }
       h1 {
         margin: 0 0 10px 0;
         font-size: 18px;
-        font-weight: 600;
+        font-weight: 700;
+        letter-spacing: -0.5px;
       }
       p {
         margin: 5px 0;
@@ -40,18 +42,19 @@
         opacity: 0.8;
       }
       .gesture-status {
-        font-weight: bold;
-        color: #00d4ff;
+        font-weight: 700;
+        color: #ff4da6;
       }
       video {
         position: fixed;
         bottom: 20px;
         right: 20px;
-        width: 200px;
-        border-radius: 8px;
-        border: 2px solid rgba(255, 255, 255, 0.2);
+        width: 180px;
+        border-radius: 12px;
+        border: 2px solid rgba(255, 255, 255, 0.1);
         transform: scaleX(-1);
         z-index: 5;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
       }
       #loading-overlay {
         position: fixed;
@@ -64,28 +67,47 @@
         justify-content: center;
         align-items: center;
         z-index: 100;
-        transition: opacity 0.5s;
+        font-size: 18px;
+        font-weight: 500;
+        transition: opacity 0.8s ease;
       }
     </style>
   </head>
   <body>
-    <div id="loading-overlay">Loading Orchid Model & Hand Tracking...</div>
+    <div id="loading-overlay">Initializing Botanical Micro-Particles...</div>
     <div id="ui">
-      <h1>Orchid Particle System</h1>
+      <h1>🌸 Orchid Particle System</h1>
       <p>
         Gesture:
         <span id="gesture-label" class="gesture-status">Detecting...</span>
       </p>
       <p>
-        Hand: <span id="hand-presence" class="gesture-status">Not Found</span>
+        Hand Tracking:
+        <span id="hand-presence" class="gesture-status">Not Found</span>
       </p>
-      <p>Usage: ✊ Fist to Converge | 🖐️ Palm to Diffuse</p>
+      <button
+        id="audio-start"
+        style="
+          pointer-events: auto;
+          background: #ff4da6;
+          border: none;
+          color: white;
+          padding: 8px 15px;
+          border-radius: 5px;
+          cursor: pointer;
+          font-weight: bold;
+          margin-top: 10px;
+        "
+      >
+        🎵 Start Audio Sync
+      </button>
+      <p>Usage: ✊ Fist to Converge | 🖐️ Palm to Dissipate</p>
     </div>
 
     <video id="webcam" autoplay playsinline></video>
     <div id="canvas-container"></div>
 
-    <!-- Scripts -->
+    <!-- Three.js + MediaPipe Scripts -->
     <script type="importmap">
       {
         "imports": {
@@ -105,17 +127,51 @@
       import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
       // --- Configuration ---
-      const PARTICLE_COUNT = 100000;
-      const PARTICLE_SIZE = 0.04;
-      const LILY_MODEL_URL = "GLB models/orchid_flower.glb";
+      const PARTICLE_COUNT = 150000; // Extremely high density
+      // FIX: Use standard folder name
+      const MODEL_URL = "models/orchid_flower.glb";
+      const AUDIO_URL =
+        "Audio/UPM_EAS86_103_Trouble_Cleansing_Instrumental_Lam_2038336.wav";
 
-      // --- State ---
+      // --- Three.js State ---
       let scene, camera, renderer, controls, particleSystem;
-      let progress = 0; // 0 = converged, 1 = diffused
+      let technicalSystem, technicalLines;
+      let techPoints = [];
+      let techTargets = [];
+      let allVertices = [];
+      let progress = 0;
       let targetProgress = 0;
-      let handVisible = false;
+      let handTarget = 0;
+      let audioTarget = 0;
 
-      // --- Hand Tracking Setup ---
+      // --- Audio State ---
+      let audioCtx, analyser, dataArray, source;
+      const audioBtn = document.getElementById("audio-start");
+
+      audioBtn.addEventListener("click", () => {
+        if (!audioCtx) {
+          initAudio();
+          audioBtn.textContent = "🔊 Audio Active";
+          audioBtn.style.background = "#00d4ff";
+        }
+      });
+
+      async function initAudio() {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        const audio = new Audio(AUDIO_URL);
+        audio.crossOrigin = "anonymous";
+        audio.loop = true;
+        source = audioCtx.createMediaElementSource(audio);
+        source.connect(analyser);
+        analyser.connect(audioCtx.destination);
+        audio.play();
+      }
+
+      // --- MediaPipe State ---
       const videoElement = document.getElementById("webcam");
       const gestureLabel = document.getElementById("gesture-label");
       const presenceLabel = document.getElementById("hand-presence");
@@ -128,165 +184,179 @@
       hands.setOptions({
         maxNumHands: 1,
         modelComplexity: 1,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
+        minDetectionConfidence: 0.6,
+        minTrackingConfidence: 0.6,
       });
 
-      hands.onResults(onHandResults);
+      hands.onResults((results) => {
+        if (
+          results.multiHandLandmarks &&
+          results.multiHandLandmarks.length > 0
+        ) {
+          presenceLabel.textContent = "ACTIVE";
+          presenceLabel.style.color = "#00ff88";
 
-      const cameraFeed = new Camera(videoElement, {
+          const landmarks = results.multiHandLandmarks[0];
+
+          // Detection logic: Fist vs Palm
+          const wrist = landmarks[0];
+          const tips = [
+            landmarks[8],
+            landmarks[12],
+            landmarks[16],
+            landmarks[20],
+          ]; // Index, Middle, Ring, Pinky
+
+          const getDist = (a, b) =>
+            Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2);
+
+          // Average distance from tips to wrist
+          let avgDist = 0;
+          tips.forEach((tip) => (avgDist += getDist(tip, wrist)));
+          avgDist /= tips.length;
+
+          // Threshold: Palm is typically > 0.35, Fist is < 0.2
+          if (avgDist < 0.28) {
+            handTarget = 0;
+            gestureLabel.textContent = "✊ Fist (Converge)";
+            gestureLabel.style.color = "#00d4ff";
+          } else {
+            handTarget = 1;
+            gestureLabel.textContent = "🖐️ Palm (Dissipate)";
+            gestureLabel.style.color = "#ff4da6";
+          }
+        } else {
+          presenceLabel.textContent = "Not Found";
+          presenceLabel.style.color = "#ff4da6";
+          handTarget = 0;
+        }
+      });
+
+      const cam = new Camera(videoElement, {
         onFrame: async () => {
           await hands.send({ image: videoElement });
         },
         width: 640,
         height: 480,
       });
-      cameraFeed.start();
+      cam.start();
 
-      function onHandResults(results) {
-        if (
-          results.multiHandLandmarks &&
-          results.multiHandLandmarks.length > 0
-        ) {
-          handVisible = true;
-          presenceLabel.textContent = "Found";
-
-          const landmarks = results.multiHandLandmarks[0];
-
-          // Detection logic: Fist vs Palm
-          // Check distance between finger tips and palm base
-          const wrist = landmarks[0];
-          const thumbTip = landmarks[4];
-          const indexTip = landmarks[8];
-          const middleTip = landmarks[12];
-          const ringTip = landmarks[16];
-          const pinkyTip = landmarks[20];
-
-          const getDist = (a, b) =>
-            Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
-
-          // Average distance from tips to wrist
-          const avgDist =
-            (getDist(indexTip, wrist) +
-              getDist(middleTip, wrist) +
-              getDist(ringTip, wrist) +
-              getDist(pinkyTip, wrist)) /
-            4;
-
-          // Threshold for fist vs palm (normalized coordinates)
-          if (avgDist < 0.25) {
-            targetProgress = 0; // Fist -> Converge
-            gestureLabel.textContent = "Fist (Converging)";
-          } else {
-            targetProgress = 1; // Palm -> Diffuse
-            gestureLabel.textContent = "Palm (Diffusing)";
-          }
-        } else {
-          handVisible = false;
-          presenceLabel.textContent = "Not Found";
-          gestureLabel.textContent = "Reseting...";
-          targetProgress = 0; // Default to converged if no hand
-        }
-      }
-
-      // --- Three.js Implementation ---
+      // --- Initialize Three.js ---
       init();
 
       function init() {
-        // Scene
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x050508);
+        scene.background = new THREE.Color(0x020205);
 
-        // Camera
         camera = new THREE.PerspectiveCamera(
           60,
           window.innerWidth / window.innerHeight,
           0.1,
           1000,
         );
-        camera.position.set(0, 5, 10);
+        camera.position.set(0, 6, 12);
 
-        // Renderer
-        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          powerPreference: "high-performance",
+        });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document
           .getElementById("canvas-container")
           .appendChild(renderer.domElement);
 
-        // Controls
         controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.5;
 
-        // Load Model and Create Particles
+        // Load Orchid Model
         const loader = new GLTFLoader();
+        console.log("Attempting to load model from:", MODEL_URL);
+
         loader.load(
-          LILY_MODEL_URL,
+          MODEL_URL,
           (gltf) => {
-            createParticles(gltf.scene);
-            document.getElementById("loading-overlay").style.opacity = "0";
-            setTimeout(
-              () =>
-                (document.getElementById("loading-overlay").style.display =
-                  "none"),
-              500,
-            );
+            console.log("Model loaded successfully:", gltf);
+            createParticleSystem(gltf.scene);
+            hideLoading();
           },
-          undefined,
-          (error) => {
-            console.error("Error loading model:", error);
-            document.getElementById("loading-overlay").textContent =
-              "Error: orchid_flower.glb not found. Please ensure it is in 'GLB models/'.";
+          (xhr) => {
+            console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+          },
+          (e) => {
+            console.error("Model Error:", e);
+            document.getElementById("loading-overlay").innerHTML =
+              "Error loading orchid_flower.glb. <br>Check console for details.";
           },
         );
 
-        window.addEventListener("resize", onResize);
+        window.addEventListener("resize", onWindowResize);
         animate();
       }
 
-      function createParticles(model) {
-        const vertices = [];
+      function hideLoading() {
+        const overlay = document.getElementById("loading-overlay");
+        overlay.style.opacity = "0";
+        setTimeout(() => (overlay.style.display = "none"), 800);
+      }
+
+      function createParticleSystem(model) {
+        allVertices = [];
+        let meshCount = 0;
+
         model.traverse((child) => {
           if (child.isMesh) {
-            const posAttr = child.geometry.attributes.position;
-            const worldMatrix = child.matrixWorld;
-            for (let i = 0; i < posAttr.count; i++) {
-              const v = new THREE.Vector3();
-              v.fromBufferAttribute(posAttr, i);
-              v.applyMatrix4(worldMatrix);
-              vertices.push(v);
+            meshCount++;
+            const pos = child.geometry.attributes.position;
+            const matrix = child.matrixWorld;
+            for (let i = 0; i < pos.count; i++) {
+              const v = new THREE.Vector3()
+                .fromBufferAttribute(pos, i)
+                .applyMatrix4(matrix);
+              allVertices.push(v);
             }
           }
         });
 
+        console.log(
+          `Extracted ${allVertices.length} vertices from ${meshCount} meshes.`,
+        );
+
+        if (allVertices.length === 0) {
+          console.error("No vertices found in model!");
+          document.getElementById("loading-overlay").innerHTML =
+            "Error: Model has 0 vertices.";
+          return;
+        }
+
         const count = PARTICLE_COUNT;
         const positions = new Float32Array(count * 3);
         const targets = new Float32Array(count * 3);
-        const offsets = new Float32Array(count * 3);
-        const randomData = new Float32Array(count);
+        const jitters = new Float32Array(count * 3);
+        const randoms = new Float32Array(count);
 
         for (let i = 0; i < count; i++) {
           const i3 = i * 3;
-          const v =
-            vertices[Math.floor(Math.random() * vertices.length)] ||
-            new THREE.Vector3();
+          const v = allVertices[Math.floor(Math.random() * allVertices.length)];
 
-          // Base position on model
+          // Base pos
           positions[i3] = v.x;
           positions[i3 + 1] = v.y;
           positions[i3 + 2] = v.z;
 
-          // Diffusion target (random far away)
-          targets[i3] = (Math.random() - 0.5) * 50;
-          targets[i3 + 1] = (Math.random() - 0.5) * 50;
-          targets[i3 + 2] = (Math.random() - 0.5) * 50;
+          // COMPRESSED TARGETS for shape preservation
+          targets[i3] = (Math.random() - 0.5) * 25.0;
+          targets[i3 + 1] = (Math.random() - 0.5) * 25.0;
+          targets[i3 + 2] = (Math.random() - 0.5) * 15.0;
 
-          // Micro-jitter offset direction
-          offsets[i3] = (Math.random() - 0.5) * 0.2;
-          offsets[i3 + 1] = (Math.random() - 0.5) * 0.2;
-          offsets[i3 + 2] = (Math.random() - 0.5) * 0.2;
+          // Micro jitter dir
+          jitters[i3] = (Math.random() - 0.5) * 0.3;
+          jitters[i3 + 1] = (Math.random() - 0.5) * 0.3;
+          jitters[i3 + 2] = (Math.random() - 0.5) * 0.3;
 
-          randomData[i] = Math.random();
+          randoms[i] = Math.random();
         }
 
         const geometry = new THREE.BufferGeometry();
@@ -295,69 +365,230 @@
           new THREE.BufferAttribute(positions, 3),
         );
         geometry.setAttribute("aTarget", new THREE.BufferAttribute(targets, 3));
-        geometry.setAttribute("aOffset", new THREE.BufferAttribute(offsets, 3));
-        geometry.setAttribute(
-          "aRandom",
-          new THREE.BufferAttribute(randomData, 1),
-        );
+        geometry.setAttribute("aJitter", new THREE.BufferAttribute(jitters, 3));
+        geometry.setAttribute("aRandom", new THREE.BufferAttribute(randoms, 1));
 
         const vertexShader = `
                 uniform float uTime;
                 uniform float uProgress;
+                uniform float uAudioEnergy;
                 attribute vec3 aTarget;
-                attribute vec3 aOffset;
+                attribute vec3 aJitter;
                 attribute float aRandom;
                 varying float vAlpha;
                 varying float vHeight;
 
                 void main() {
-                    vHeight = position.y; // Pass Y for coloring
+                    vHeight = position.y;
                     
-                    // Floating jitter logic
-                    float jitter = sin(uTime * 2.0 + aRandom * 10.0) * 0.05;
-                    vec3 bloomPos = position + aOffset * jitter;
+                    // Subtle Audio-driven Jitter for "living" feel
+                    vec3 jitter = aJitter * (1.0 + uAudioEnergy * 5.0);
                     
-                    // Dissipate/Aggregate lerp
-                    vec3 finalPos = mix(bloomPos, aTarget, uProgress);
+                    vec3 pos = mix(position, aTarget, uProgress);
+                    pos += jitter * sin(uTime * 2.5 + aRandom * 15.0);
                     
-                    vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
+                    vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
+                    gl_Position = projectionMatrix * mvPos;
                     
-                    // Point size with perspective
-                    gl_PointSize = (1.0 - uProgress * 0.5) * 6.0 * (10.0 / -mvPosition.z);
-                    
-                    // Fade alpha as we dissipate
-                    vAlpha = 1.0 - uProgress * 0.8;
-                    
-                    gl_Position = projectionMatrix * mvPosition;
+                    vAlpha = mix(1.0, 0.3, uProgress);
+                    gl_PointSize = (6.5 - uProgress * 3.5) * (18.0 / -mvPos.z);
                 }
             `;
 
         const fragmentShader = `
                 varying float vAlpha;
                 varying float vHeight;
+
                 void main() {
-                    // Soft glowing dot
-                    vec2 cxy = 2.0 * gl_PointCoord - 1.0;
-                    float r = dot(cxy, cxy);
-                    if (r > 1.0) discard;
+                    vec2 coord = 2.0 * gl_PointCoord - 1.0;
+                    float r = dot(coord, coord);
+                    if(r > 1.0) discard;
+                    float glow = pow(1.0 - r, 4.0);
                     
-                    float strength = pow(1.0 - r, 3.0);
-                    
-                    // Orchid Color Mapping (Hardcoded height range estimate for this model 0..5 approx)
-                    // Bottom (Stem) = Gold, Top (Petals) = Pink/Purple
-                    float h = clamp((vHeight + 1.0) / 6.0, 0.0, 1.0);
+                    // SHARPER COLOR BANDS (Mirroring Example)
+                    float h = clamp((vHeight + 1.2) / 5.5, 0.0, 1.0);
                     vec3 color;
-                    if (h > 0.6) {
-                        color = mix(vec3(0.5, 0.1, 0.5), vec3(1.0, 0.2, 0.8), h); // Pink/Purple
-                    } else if (h > 0.3) {
-                        color = mix(vec3(1.0, 0.8, 0.0), vec3(0.5, 0.1, 0.5), (h-0.3)*3.3); // Gold to Purple
+                    if(h > 0.42) {
+                        // Petals: Deep Saturated Purple
+                        color = vec3(0.6, 0.05, 0.95); 
+                    } else if(h > 0.3) {
+                        // Sharp Transition
+                        color = mix(vec3(0.9, 0.85, 0.1), vec3(0.6, 0.05, 0.95), (h-0.3)*8.0);
                     } else {
-                        color = vec3(1.0, 0.8, 0.0); // Gold Stem
+                        // Stem: Yellow-Green/Gold
+                        color = vec3(0.9, 0.85, 0.1); 
                     }
 
-                    gl_FragColor = vec4(color, strength * vAlpha);
+                    // Radiance and contrast boost
+                    color = pow(color, vec3(1.15)) * 1.6; 
+
+                    gl_FragColor = vec4(color, glow * vAlpha);
                 }
             `;
+
+        // -----------------------------------------------------------------
+        // Technical Layer Shaders (NEW)
+        // -----------------------------------------------------------------
+        const symbolVertexShader = `
+            uniform float uTime;
+            uniform float uProgress;
+            uniform float uAudioEnergy;
+            attribute vec3 aTarget;
+            attribute float aType; // 0 for +, 1 for #
+            varying float vType;
+            varying float vAlpha;
+
+            void main() {
+                vType = aType;
+                vec3 pos = mix(position, aTarget, uProgress);
+                // Subtle pulse
+                pos += normalize(pos) * uAudioEnergy * 0.2;
+                vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
+                gl_Position = projectionMatrix * mvPos;
+                
+                vAlpha = mix(1.0, 0.4, uProgress) * (0.8 + uAudioEnergy * 0.5);
+                gl_PointSize = (10.0 + uAudioEnergy * 20.0) * (18.0 / -mvPos.z);
+            }
+        `;
+
+        const symbolFragmentShader = `
+            varying float vType;
+            varying float vAlpha;
+
+            void main() {
+                vec2 uv = gl_PointCoord - 0.5;
+                float d = 0.0;
+                float thickness = 0.08;
+                
+                if(vType < 0.5) {
+                    // Plus symbol (+)
+                    if(abs(uv.x) < thickness && abs(uv.y) < 0.4) d = 1.0;
+                    if(abs(uv.y) < thickness && abs(uv.x) < 0.4) d = 1.0;
+                } else {
+                    // Hash symbol (#)
+                    float off = 0.15;
+                    if(abs(abs(uv.x) - off) < thickness && abs(uv.y) < 0.4) d = 1.0;
+                    if(abs(abs(uv.y) - off) < thickness && abs(uv.x) < 0.4) d = 1.0;
+                }
+
+                if(d < 0.5) discard;
+                
+                // Pure Cyan for technical look
+                vec3 color = vec3(0.0, 1.0, 1.0);
+                gl_FragColor = vec4(color, vAlpha);
+            }
+        `;
+
+        // Global variables are now declared at the top level
+
+        function createTechnicalLayer() {
+          const count = 400;
+          const geo = new THREE.BufferGeometry();
+          const posArray = new Float32Array(count * 3);
+          const targetArray = new Float32Array(count * 3);
+          const typeArray = new Float32Array(count);
+
+          for (let i = 0; i < count; i++) {
+            const v =
+              allVertices[Math.floor(Math.random() * allVertices.length)];
+            posArray[i * 3] = v.x;
+            posArray[i * 3 + 1] = v.y;
+            posArray[i * 3 + 2] = v.z;
+
+            techPoints.push(new THREE.Vector3(v.x, v.y, v.z));
+
+            const tx = (Math.random() - 0.5) * 15.0;
+            const ty = (Math.random() - 0.5) * 15.0;
+            const tz = (Math.random() - 0.5) * 10.0;
+            targetArray[i * 3] = tx;
+            targetArray[i * 3 + 1] = ty;
+            targetArray[i * 3 + 2] = tz;
+
+            techTargets.push(new THREE.Vector3(tx, ty, tz));
+
+            typeArray[i] = Math.random() > 0.5 ? 1.0 : 0.0;
+          }
+
+          geo.setAttribute("position", new THREE.BufferAttribute(posArray, 3));
+          geo.setAttribute(
+            "aTarget",
+            new THREE.BufferAttribute(targetArray, 3),
+          );
+          geo.setAttribute("aType", new THREE.BufferAttribute(typeArray, 1));
+
+          const mat = new THREE.ShaderMaterial({
+            uniforms: {
+              uTime: { value: 0 },
+              uProgress: { value: 0 },
+              uAudioEnergy: { value: 0 },
+            },
+            vertexShader: symbolVertexShader,
+            fragmentShader: symbolFragmentShader,
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+          });
+
+          technicalSystem = new THREE.Points(geo, mat);
+          scene.add(technicalSystem);
+
+          // Lines
+          const lineGeo = new THREE.BufferGeometry();
+          // Max connections for performance
+          const maxIdx = 1000;
+          lineGeo.setAttribute(
+            "position",
+            new THREE.BufferAttribute(new Float32Array(maxIdx * 3), 3),
+          );
+          const lineMat = new THREE.LineBasicMaterial({
+            color: 0x00ffff,
+            transparent: true,
+            opacity: 0.3,
+            blending: THREE.AdditiveBlending,
+          });
+          technicalLines = new THREE.LineSegments(lineGeo, lineMat);
+          scene.add(technicalLines);
+        }
+
+        function updateTechnicalLines() {
+          if (!technicalSystem || !technicalLines) return;
+
+          const count = 400;
+          const linePos = technicalLines.geometry.attributes.position.array;
+          let idx = 0;
+          const threshold = 1.2;
+
+          const currentPoints = [];
+          const posAttr = technicalSystem.geometry.attributes.position.array;
+          for (let i = 0; i < count; i++) {
+            currentPoints.push(
+              new THREE.Vector3(
+                posAttr[i * 3],
+                posAttr[i * 3 + 1],
+                posAttr[i * 3 + 2],
+              ),
+            );
+          }
+
+          for (let i = 0; i < count; i++) {
+            for (let j = i + 1; j < count; j++) {
+              if (idx >= 3000) break; // Array limit
+              const d = currentPoints[i].distanceTo(currentPoints[j]);
+              if (d < threshold) {
+                linePos[idx++] = currentPoints[i].x;
+                linePos[idx++] = currentPoints[i].y;
+                linePos[idx++] = currentPoints[i].z;
+                linePos[idx++] = currentPoints[j].x;
+                linePos[idx++] = currentPoints[j].y;
+                linePos[idx++] = currentPoints[j].z;
+              }
+            }
+          }
+          // Clear rest of array
+          for (let i = idx; i < linePos.length; i++) linePos[i] = 0;
+          technicalLines.geometry.attributes.position.needsUpdate = true;
+          technicalLines.material.opacity = (1.0 - progress * 0.8) * 0.3;
+        }
 
         const material = new THREE.ShaderMaterial({
           vertexShader,
@@ -365,6 +596,7 @@
           uniforms: {
             uTime: { value: 0 },
             uProgress: { value: 0 },
+            uAudioEnergy: { value: 0 },
           },
           transparent: true,
           blending: THREE.AdditiveBlending,
@@ -373,9 +605,12 @@
 
         particleSystem = new THREE.Points(geometry, material);
         scene.add(particleSystem);
+
+        // Create Technical layer using same vertex data source
+        createTechnicalLayer();
       }
 
-      function onResize() {
+      function onWindowResize() {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -386,14 +621,73 @@
         const time = performance.now() * 0.001;
 
         if (particleSystem) {
-          // Smooth transition for progress
-          progress = THREE.MathUtils.lerp(progress, targetProgress, 0.05);
+          // Audio analysis
+          if (analyser) {
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            // Focus on mid-bass for dissipation
+            for (let i = 0; i < 35; i++) sum += dataArray[i];
+            let intensity = sum / (35 * 255);
+
+            // VERY RESTRAINED DISSIPATION: Cap to 0.18 for "slight" movement
+            audioTarget = Math.min(intensity * 1.5, 0.18);
+
+            // Pass intensity for subtle vibration
+            particleSystem.material.uniforms.uAudioEnergy.value = intensity;
+          }
+
+          // Combine Gesture + Audio
+          // Gesture (handTarget) can still fully dissipate (1.0)
+          // Audio (audioTarget) only pulses/dissipates partially
+          targetProgress = Math.max(handTarget, audioTarget);
+
+          // Smoother interpolation
+          progress = THREE.MathUtils.lerp(
+            progress,
+            THREE.MathUtils.clamp(targetProgress, 0, 1),
+            0.08,
+          );
 
           particleSystem.material.uniforms.uTime.value = time;
           particleSystem.material.uniforms.uProgress.value = progress;
 
-          // Slow rotation
-          particleSystem.rotation.y += 0.002;
+          // Update Technical Layer
+          if (technicalSystem) {
+            technicalSystem.material.uniforms.uTime.value = time;
+            technicalSystem.material.uniforms.uProgress.value = progress;
+            technicalSystem.material.uniforms.uAudioEnergy.value =
+              particleSystem.material.uniforms.uAudioEnergy.value;
+
+            // Sync positions (manual lerp for line updates)
+            const posAttr = technicalSystem.geometry.attributes.position.array;
+            for (let i = 0; i < 400; i++) {
+              posAttr[i * 3] = THREE.MathUtils.lerp(
+                techPoints[i].x,
+                techTargets[i].x,
+                progress,
+              );
+              posAttr[i * 3 + 1] = THREE.MathUtils.lerp(
+                techPoints[i].y,
+                techTargets[i].y,
+                progress,
+              );
+              posAttr[i * 3 + 2] = THREE.MathUtils.lerp(
+                techPoints[i].z,
+                techTargets[i].z,
+                progress,
+              );
+            }
+            technicalSystem.geometry.attributes.position.needsUpdate = true;
+            updateTechnicalLines();
+          }
+
+          // Subtle rotation
+          const rot = 0.0015 * (1.0 - progress * 0.7);
+          particleSystem.rotation.y += rot;
+          if (technicalSystem) {
+            technicalSystem.rotation.y += rot;
+            technicalLines.rotation.y += rot;
+          }
         }
 
         controls.update();

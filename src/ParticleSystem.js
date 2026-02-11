@@ -208,7 +208,7 @@ export class ParticleSystem {
     // Complex Palette (Gold, Teal, Purple, Pink, White)
     const palette = [
       new THREE.Color("#FFD700"), // Gold
-      new THREE.Color("#00FFFF"), // Teal
+      new THREE.Color("#00fffbff"), // Teal
       new THREE.Color("#9D00FF"), // Purple
       new THREE.Color("#FF0066"), // Pink
       new THREE.Color("#FFFFFF"), // White
