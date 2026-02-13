@@ -22,22 +22,26 @@ https://github.com/user-attachments/assets/c18241f1-9731-4c09-b119-56800872382d
 ## Installation
 
 ### Prerequisites
+
 - Node.js (v16 or higher)
 - VSCode (recommended)
 
 ### Setup
 
 1. **Navigate to the project directory:**
+
    ```bash
    cd c4d-music-particles
    ```
 
 2. **Install dependencies:**
+
    ```bash
    npm install
    ```
 
 3. **Start the development server:**
+
    ```bash
    npm run dev
    ```
@@ -64,15 +68,17 @@ https://github.com/user-attachments/assets/c18241f1-9731-4c09-b119-56800872382d
 ### Controls
 
 #### Color Settings
+
 - **Color Mode**
-  - *Custom Gradient*: Use custom gradient colors
-  - *Model Color*: Use colors extracted from the imported 3D model
+  - _Custom Gradient_: Use custom gradient colors
+  - _Model Color_: Use colors extracted from the imported 3D model
 - **Gradient Start/End**: Choose gradient colors (only in Custom Gradient mode)
 - **Blend Mode**
-  - *Normal*: Standard blending
-  - *Additive*: Bright, glowing particles with additive blending
+  - _Normal_: Standard blending
+  - _Additive_: Bright, glowing particles with additive blending
 
 #### Particle Settings
+
 - **Particle Count**: Number of particles (1,000 - 50,000)
   - Lower counts = better performance
   - Higher counts = more detailed visualizations
@@ -86,6 +92,7 @@ https://github.com/user-attachments/assets/c18241f1-9731-4c09-b119-56800872382d
   - Higher = slower, more sustained effects
 
 ### Camera Controls
+
 - **Rotate**: Left-click and drag
 - **Zoom**: Scroll wheel
 - **Pan**: Right-click and drag
@@ -108,6 +115,7 @@ c4d-music-particles/
 ## Technical Details
 
 ### Technologies Used
+
 - **Three.js** - 3D graphics library
 - **Web Audio API** - Real-time audio analysis
 - **Vite** - Fast development server and build tool
@@ -126,8 +134,8 @@ c4d-music-particles/
    - Audio data influences all particle properties in real-time
 
 3. **Color Modes**
-   - *Gradient Mode*: Particles are colored along a gradient
-   - *Model Mode*: Colors are sampled from the 3D model's materials
+   - _Gradient Mode_: Particles are colored along a gradient
+   - _Model Mode_: Colors are sampled from the 3D model's materials
 
 4. **Attenuation**
    - Colors gradually return to their original values
@@ -150,16 +158,19 @@ c4d-music-particles/
 ## Troubleshooting
 
 **Audio not playing:**
+
 - Ensure browser allows autoplay (may require user interaction)
 - Check browser console for errors
 - Try a different audio format
 
 **Model not loading:**
+
 - Ensure file is a valid GLB/GLTF format
 - Check file isn't corrupted
 - Try a smaller model first
 
 **Poor performance:**
+
 - Reduce particle count
 - Use simpler 3D models
 - Close other applications
@@ -168,6 +179,7 @@ c4d-music-particles/
 ## Development
 
 ### Building for Production
+
 ```bash
 npm run build
 ```
@@ -175,6 +187,7 @@ npm run build
 Output will be in the `dist/` directory.
 
 ### Preview Production Build
+
 ```bash
 npm run preview
 ```
@@ -182,6 +195,7 @@ npm run preview
 ## Example Models & Audio
 
 Place sample files in the respective directories:
+
 - `models/` - GLB/GLTF files
 - `audio/` - Audio files (MP3, WAV, etc.)
 
